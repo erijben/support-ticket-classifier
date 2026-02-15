@@ -16,46 +16,64 @@ Develop a classifier using **TF-IDF + Logistic Regression** to categorize short 
 
 ## 🔧 Approach
 
-The notebook (`solution.ipynb`) performs the following steps:
+The notebook (`solution.ipynb`) implements a robust classification pipeline with the following improvements:
 
+### Data Processing
 1. **Load Data**: Read `twcs.csv` and filter inbound customer messages
-2. **Text Cleaning**: Remove URLs, mentions, hashtags, and special characters
-3. **Weak Supervision Labeling**: Generate labels using keyword-based rules
-   - Billing keywords: bill, charge, payment, invoice, refund, etc.
-   - Technical keywords: error, crash, bug, slow, battery, etc.
-   - Account keywords: password, login, account, reset, etc.
-4. **Data Preparation**: Filter labeled rows and create stratified train/test split
-5. **Feature Engineering**: TF-IDF vectorization with unigrams + bigrams (1,2)
-6. **Model Training**: Logistic Regression classifier with balanced class weights
-7. **Evaluation**: Compute and display comprehensive metrics
-8. **Export**: Save trained model and vectorizer as `.pkl` files
-9. **Demo**: Run predictions on first 10 rows from `sample.csv`
+2. **Weak Supervision Labeling**: Generate labels using keyword-based rules for Billing, Technical, Account
+3. **Enhanced Text Cleaning**:
+   - Convert emojis to text descriptions
+   - Remove URLs, mentions, hashtags
+   - Filter non-English characters
+   - Remove stopwords (NLTK)
+   - Apply stemming (Porter Stemmer)
 
-## 📈 Metrics
+### Label Leakage Mitigation ⚠️
+**Critical improvement**: To avoid circular reasoning where the model simply learns the keywords used for labeling:
+- All weak supervision keywords are **excluded from TF-IDF feature space**
+- This forces the model to learn from contextual patterns rather than direct keyword matching
+- Custom stop words = English stopwords + labeling keywords
 
-The notebook outputs the following evaluation metrics:
+### Model Training & Validation
+4. **Three-way Split**: Train (70%), Validation (15%), Test (15%) - stratified
+5. **TF-IDF Vectorization**: Unigrams + bigrams (1,2) with labeling keywords excluded
+6. **Logistic Regression**: Balanced class weights, L-BFGS solver
+7. **5-Fold Cross-Validation**: Robust performance estimation on training set
+8. **Validation Monitoring**: Track overfitting with held-out validation set
 
-- **Accuracy**
-- **Macro Precision**
-- **Macro Recall**
-- **Macro F1-Score**
-- **Confusion Matrix**
-- **Classification Report** (per-class precision, recall, F1)
+### Evaluation
+9. **Comprehensive Metrics**:
+   - Accuracy
+   - Macro Precision
+   - Macro Recall  
+   - Macro F1-Score
+   - Confusion Matrix (fixed label order)
+   - Classification Report (per-class metrics)
+10. **Model Export**: Save pipeline as `model.pkl`
+11. **Demo**: Predictions on first 10 rows from `sample.csv`
+
+## 📈 Key Improvements
+
+✅ **Label leakage mitigation** - Exclude labeling keywords from features  
+✅ **Cross-validation** - 5-fold stratified CV for robust evaluation  
+✅ **Validation set** - Monitor overfitting during training  
+✅ **Larger sample** - 50,000 records (up from 20,000)  
+✅ **Stopword removal** - NLTK English stopwords  
+✅ **Stemming** - Porter Stemmer normalization  
+✅ **Emoji handling** - Convert to text descriptions  
+✅ **Non-English filtering** - English characters only
 
 ## 🚀 How to Run
 
 ### Requirements
 - Python 3.8+
-- Dependencies: pandas, numpy, scikit-learn, joblib
+- Dependencies: pandas, numpy, scikit-learn, joblib, nltk, emoji
 
 ### Setup
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-
-# Or install manually
-pip install pandas numpy scikit-learn joblib
 ```
 
 ### Execution
@@ -63,20 +81,34 @@ pip install pandas numpy scikit-learn joblib
 1. Open `solution.ipynb` in Jupyter Notebook, JupyterLab, VS Code, or Google Colab
 2. Click **Run All** to execute the entire pipeline
 3. Expected output:
-   - Printed metrics (accuracy, precision, recall, F1, confusion matrix)
+   - Cross-validation scores
+   - Validation set performance
+   - Test set metrics (accuracy, precision, recall, F1, confusion matrix)
    - Demo predictions on sample data
    - Saved files: `model.pkl` and `tfidf_vectorizer.pkl`
 
+**Note**: First run will download NLTK stopwords data automatically.
 
-## 📝 Notes
+## 📝 Methodology Notes
 
-**Weak Supervision**: Since `twcs.csv` does not contain ground-truth labels, we use a reproducible keyword-based weak supervision approach. Each message is scored against three keyword sets (Billing, Technical, Account). The category with the highest score is assigned as the label. Messages with no matches or tied scores are excluded to maintain label quality.
+### Weak Supervision
+Since `twcs.csv` lacks ground-truth labels, we use keyword-based weak supervision. Each message is scored against three keyword sets (Billing, Technical, Account). The category with the highest unique score becomes the label. Messages with ties or no matches are excluded.
 
-This approach provides a fast, reproducible baseline for classification without manual annotation.
+### Label Leakage Prevention
+A critical challenge in weak supervision is **label leakage**: if we label using keywords and then TF-IDF learns those same keywords, the model is just pattern-matching our labeling rules (circular reasoning).
+
+**Our solution**: Exclude all labeling keywords from the TF-IDF feature vocabulary. This forces the classifier to learn from:
+- Contextual patterns
+- Adjacent words and phrases
+- Bigrams that don't directly contain labeling keywords
+- Semantic relationships
+
+This creates a more generalizable model that doesn't simply memorize the labeling heuristics.
 
 ## 🎓 Submission
 
-- **Deliverable**: Single Jupyter notebook (`solution.ipynb`) that runs end-to-end
-- **Model**: TF-IDF + Logistic Regression
-- **Dataset**: twcs.csv (training) + sample.csv (demo)
+- **Deliverable**: Single Jupyter notebook (`solution.ipynb`)
+- **Model**: TF-IDF + Logistic Regression with label leakage mitigation
+- **Dataset**: twcs.csv (50k sample) + sample.csv (demo)
+- **Validation**: 5-fold CV + separate validation/test sets
 - **Output**: Comprehensive metrics + saved model artifacts
